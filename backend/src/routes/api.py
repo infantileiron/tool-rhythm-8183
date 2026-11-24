@@ -3,7 +3,8 @@ from fastapi import APIRouter, Depends, Query, Response
 from src.constants.domain import Role
 from src.controllers import session
 from src.middlewares.auth import current, only
-from src.schemas.inputs import Code, Correction, Login, Period, PlanInput, PublishInput, RecordInput, StationInput
+from src.schemas.inputs import (Code, ClosureInput, Correction, Login, Period, PlanInput, PublishInput,
+                                RecordInput, StationInput)
 from src.services import intake, plans
 
 router = APIRouter()
@@ -35,6 +36,21 @@ def station_create(data: StationInput, viewer=Depends(analyst)):
 def record_list(period: Period, station_code: Code | None = None,
                 page: int = Query(1, ge=1, le=1000000), viewer=Depends(current)):
     return intake.records(period, station_code, page)
+
+
+@router.post('/closures/search')
+def closure_list(period: Period, station_code: Code | None = None, viewer=Depends(current)):
+    return intake.closures(period, station_code)
+
+
+@router.post('/closures', status_code=201)
+def closure_create(data: ClosureInput, viewer=Depends(analyst)):
+    return intake.create_closure(data, viewer['sub'])
+
+
+@router.delete('/closures/{closure_id}')
+def closure_delete(closure_id: int, viewer=Depends(analyst)):
+    return intake.delete_closure(closure_id, viewer['sub'])
 
 
 @router.post('/records', status_code=201)

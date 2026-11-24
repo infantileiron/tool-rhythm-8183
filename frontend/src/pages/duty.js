@@ -4,7 +4,7 @@ import {exceptionNotes, runLabels, stationLabels} from '../constants/domain.js';
 import {bindForm} from '../hooks/forms.js';
 import {workbench} from '../stores/workbench.js';
 import {saveDownload} from '../utils/dom.js';
-import {band, esc, localDateTime} from '../utils/format.js';
+import {band, esc, localDateTime, number} from '../utils/format.js';
 
 export async function dutyPage(container, id) {
   const admin = workbench.user.role === 'admin';
@@ -62,8 +62,9 @@ export async function dutyPage(container, id) {
 
 function groupTable(groups, run) {
   if (!groups.length) return blank('本期无分组', '请填写例外站点的复查安排。');
-  return table('分组安排', ['分组与峰段', '站点', '值守安排'], groups.map(group => `<tr>
+  return table('分组安排', ['分组与峰段', '共同开放时段', '站点', '值守安排'], groups.map(group => `<tr>
     <td><strong class="key mono">${group.key}</strong><br>${band(run.snapshot.bands[group.peak])}</td>
+    <td>${group.common_bands ? group.common_bands.map(i => band(run.snapshot.bands[i])).join('、') : '全时段比较（历史版本）'}</td>
     <td class="mono">${group.station_codes.join(' / ')}</td>
     <td>${run.decision ? esc(run.decision.groups[group.key]) :
       `<textarea name="group-${group.key}" aria-label="${group.key} 值守安排" minlength="4" maxlength="240" rows="2" required>${esc(group.advice)}</textarea>`}</td></tr>`));
@@ -71,8 +72,14 @@ function groupTable(groups, run) {
 
 function exceptionTable(exceptions, run) {
   if (!exceptions.length) return blank('本期无例外', '窗口内所有站点均已有分组安排。');
-  return table('例外处置', ['站点', '类型', '处置意见'], exceptions.map(member => `<tr>
+  return table('例外处置', ['站点', '类型', '开放件数 / 闭站冲突', '处置意见'], exceptions.map(member => {
+    const closedHours = member.closed_total_hours ?? 0;
+    const conflicts = member.conflict_returns ?? 0;
+    const reason = member.noise_reason || exceptionNotes[member.status];
+    return `<tr>
     <td><span class="key mono">${member.code}</span> · ${esc(member.name)}</td><td>${badge(stationLabels[member.status], member.status)}</td>
+    <td class="mono">${number(member.total)} 件<br><small>闭站 ${number(closedHours)} 时 · 冲突 ${number(conflicts)} 件</small><br><small>${esc(reason)}</small></td>
     <td>${run.decision ? esc(run.decision.exceptions[member.code]) :
-      `<textarea name="exception-${member.code}" aria-label="${member.code} 处置意见" minlength="4" maxlength="240" rows="2" placeholder="${exceptionNotes[member.status]}" required></textarea>`}</td></tr>`));
+      `<textarea name="exception-${member.code}" aria-label="${member.code} 处置意见" minlength="4" maxlength="240" rows="2" placeholder="${exceptionNotes[member.status]}" required></textarea>`}</td></tr>`;
+  }));
 }
